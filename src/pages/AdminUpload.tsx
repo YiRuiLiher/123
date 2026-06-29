@@ -20,31 +20,63 @@ export function AdminUpload() {
     }
   };
 
+  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+
   const handleUpload = async () => {
     if (!selectedFile) return;
 
     setStatus('uploading');
-    setMessage('上传中，请稍候...');
+    setMessage('准备上传...');
 
-    const formData = new FormData();
-    formData.append('videoFile', selectedFile);
-    formData.append('description', description);
-    formData.append('categoryId', categoryId);
-
+    const fileIdentifier = `${Date.now()}-${selectedFile.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    const totalChunks = Math.ceil(selectedFile.size / CHUNK_SIZE);
+    
     try {
-      const response = await fetch('/api/upload-video', {
-        method: 'POST',
-        body: formData,
-      });
+      for (let i = 0; i < totalChunks; i++) {
+        setMessage(`上传中: 正在上传分片 ${i + 1} / ${totalChunks} (${Math.round(((i) / totalChunks) * 100)}%)`);
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, selectedFile.size);
+        const chunk = selectedFile.slice(start, end);
+        
+        const formData = new FormData();
+        formData.append('chunk', chunk);
+        formData.append('fileIdentifier', fileIdentifier);
+        formData.append('chunkIndex', i.toString());
 
-      if (!response.ok) {
-        if (response.status === 413) {
-          throw new Error('文件太大 (413)。如果您在测试环境中，可能受限于网关的32MB限制。请部署到自己的服务器上使用。');
+        const response = await fetch('/api/upload-chunk', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error(`分片 ${i + 1} 上传失败 (${response.status})`);
         }
-        throw new Error(`上传失败 (${response.status})`);
       }
 
-      const responseData = await response.json();
+      setMessage('文件上传完成，正在合并保存...');
+
+      const title = selectedFile.name.replace(/\.[^/.]+$/, "");
+
+      const mergeResponse = await fetch('/api/upload-complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fileIdentifier,
+          totalChunks,
+          originalName: selectedFile.name,
+          title,
+          description,
+          categoryId
+        }),
+      });
+
+      if (!mergeResponse.ok) {
+        throw new Error(`文件合并失败 (${mergeResponse.status})`);
+      }
+
+      setStatus('success');
       setMessage('视频上传成功，自动跳转到首页...');
       
       // Reset form

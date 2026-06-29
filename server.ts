@@ -8,10 +8,12 @@ import multer from 'multer';
 const DATA_DIR = path.join(process.cwd(), 'data');
 const VIDEOS_JSON_PATH = path.join(DATA_DIR, 'videos.json');
 const UPLOADS_DIR = path.join(process.cwd(), 'public', 'uploads');
+const TEMP_DIR = path.join(process.cwd(), 'tmp_uploads');
 
 async function ensureDirs() {
   await fs.mkdir(DATA_DIR, { recursive: true });
   await fs.mkdir(UPLOADS_DIR, { recursive: true });
+  await fs.mkdir(TEMP_DIR, { recursive: true });
   try {
     await fs.access(VIDEOS_JSON_PATH);
   } catch {
@@ -36,6 +38,8 @@ const upload = multer({
   limits: { fileSize: 2 * 1024 * 1024 * 1024 } // 2GB
 });
 
+const chunkUpload = multer({ dest: TEMP_DIR });
+
 async function startServer() {
   await ensureDirs();
 
@@ -59,24 +63,57 @@ async function startServer() {
     }
   });
 
-  // API to upload video and update JSON
-  app.post('/api/upload-video', upload.single('videoFile'), async (req, res) => {
+  // API to upload video chunks
+  app.post('/api/upload-chunk', chunkUpload.single('chunk'), async (req, res) => {
     try {
-      if (!req.file) {
-        return res.status(400).json({ error: 'No video file uploaded' });
+      const { fileIdentifier, chunkIndex } = req.body;
+      const chunkFile = req.file;
+
+      if (!chunkFile) {
+        return res.status(400).json({ error: 'No chunk file uploaded' });
       }
 
-      // Get parameters from form-data
-      const title = req.file.originalname.replace(path.extname(req.file.originalname), '');
-      const description = req.body.description || '';
-      const categoryId = req.body.categoryId || 'lifestyle';
+      const chunkDir = path.join(TEMP_DIR, fileIdentifier);
+      await fs.mkdir(chunkDir, { recursive: true });
       
+      const targetPath = path.join(chunkDir, chunkIndex.toString());
+      await fs.rename(chunkFile.path, targetPath);
+
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Chunk upload error:', err);
+      res.status(500).json({ error: 'Chunk upload failed' });
+    }
+  });
+
+  // API to complete chunked upload and save video info
+  app.post('/api/upload-complete', async (req, res) => {
+    try {
+      const { fileIdentifier, totalChunks, originalName, title, description, categoryId } = req.body;
+      const chunkDir = path.join(TEMP_DIR, fileIdentifier);
+      
+      const ext = path.extname(originalName);
+      const basename = path.basename(originalName, ext);
+      const safeName = basename.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const finalFilename = `${safeName}-${Date.now()}${ext}`;
+      const finalPath = path.join(UPLOADS_DIR, finalFilename);
+
+      // Merge chunks
+      for (let i = 0; i < totalChunks; i++) {
+        const chunkPath = path.join(chunkDir, i.toString());
+        const chunkData = await fs.readFile(chunkPath);
+        await fs.appendFile(finalPath, chunkData);
+        await fs.unlink(chunkPath);
+      }
+      await fs.rm(chunkDir, { recursive: true, force: true });
+
+      // Update JSON
       const newVideo = {
-        title,
-        url: `/uploads/${req.file.filename}`,
-        categoryId,
+        title: title || safeName,
+        url: `/uploads/${finalFilename}`,
+        categoryId: categoryId || 'lifestyle',
         author: 'Admin',
-        description,
+        description: description || '',
         descriptionImages: []
       };
 
@@ -95,8 +132,8 @@ async function startServer() {
 
       res.json({ success: true, video: newVideo });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Upload failed' });
+      console.error('Merge error:', err);
+      res.status(500).json({ error: 'Upload merge failed' });
     }
   });
 
