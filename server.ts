@@ -31,7 +31,10 @@ const storage = multer.diskStorage({
     cb(null, `${safeName}-${Date.now()}${ext}`)
   }
 });
-const upload = multer({ storage: storage });
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 2 * 1024 * 1024 * 1024 } // 2GB
+});
 
 async function startServer() {
   await ensureDirs();
@@ -39,12 +42,16 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: '2gb' }));
+  app.use(express.urlencoded({ limit: '2gb', extended: true }));
 
   // API to get videos
   app.get('/api/videos', async (req, res) => {
     try {
       const data = await fs.readFile(VIDEOS_JSON_PATH, 'utf-8');
+      if (!data || data.trim() === '') {
+        return res.json([]);
+      }
       res.json(JSON.parse(data));
     } catch (err) {
       console.error(err);
@@ -74,7 +81,14 @@ async function startServer() {
       };
 
       const data = await fs.readFile(VIDEOS_JSON_PATH, 'utf-8');
-      const videos = JSON.parse(data);
+      let videos = [];
+      if (data && data.trim() !== '') {
+        try {
+          videos = JSON.parse(data);
+        } catch (e) {
+          videos = [];
+        }
+      }
       videos.push(newVideo);
       
       await fs.writeFile(VIDEOS_JSON_PATH, JSON.stringify(videos, null, 2));

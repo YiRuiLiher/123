@@ -38,10 +38,13 @@ export function AdminUpload() {
       });
 
       if (!response.ok) {
-        throw new Error('上传失败');
+        if (response.status === 413) {
+          throw new Error('文件太大 (413)。如果您在测试环境中，可能受限于网关的32MB限制。请部署到自己的服务器上使用。');
+        }
+        throw new Error(`上传失败 (${response.status})`);
       }
 
-      setStatus('success');
+      const responseData = await response.json();
       setMessage('视频上传成功，自动跳转到首页...');
       
       // Reset form

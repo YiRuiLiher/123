@@ -24,7 +24,13 @@ export function VideoProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       const res = await fetch('/api/videos');
-      if (!res.ok) throw new Error('Failed to fetch videos');
+      const contentType = res.headers.get('content-type');
+      if (!res.ok) throw new Error(`获取视频失败 (${res.status})`);
+      
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('API 返回了非预期的格式 (可能服务正在启动或代理限制)');
+      }
+      
       const data = await res.json();
       
       // Hash function to create deterministic IDs for new videos without IDs
