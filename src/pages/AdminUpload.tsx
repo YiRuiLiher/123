@@ -20,7 +20,7 @@ export function AdminUpload() {
     }
   };
 
-  const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
+  const CHUNK_SIZE = 512 * 1024; // 512KB chunks to bypass Nginx 1MB limit
 
   const handleUpload = async () => {
     if (!selectedFile) return;
