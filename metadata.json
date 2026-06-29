@@ -1,0 +1,6 @@
+{
+  "name": "NexusStream",
+  "description": "A web video platform featuring high-definition playback, real-time danmaku interaction, comments, and dark mode.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

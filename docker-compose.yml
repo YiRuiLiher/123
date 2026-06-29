@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  nexus-stream:
+    build: .
+    container_name: nexus-stream-app
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+    volumes:
+      # 如果有较多本地视频资源，推荐通过 volumes 挂载
+      # - ./public/assets/videos:/usr/share/nginx/html/assets/videos
+    environment:
+      - TZ=Asia/Shanghai

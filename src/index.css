@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+@keyframes danmaku {
+  from {
+    transform: translateX(100%);
+    left: 100%;
+  }
+  to {
+    transform: translateX(-100%);
+    left: 0;
+  }
+}
+
