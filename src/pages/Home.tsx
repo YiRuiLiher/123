@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { videos, AppConfig } from '../data/config';
+import { AppConfig } from '../data/config';
 import { VideoCard } from '../components/VideoCard';
 import { cn } from '../lib/utils';
 import { TrendingUp } from 'lucide-react';
+import { useVideos } from '../contexts/VideoContext';
 
 export function Home() {
   const { categoryId } = useParams<{ categoryId: string }>();
@@ -13,6 +14,16 @@ export function Home() {
   const searchQuery = searchParams.get('search')?.toLowerCase() || '';
 
   const [rankingPeriod, setRankingPeriod] = useState<'today' | 'week' | 'month'>('today');
+
+  const { videos, loading, error } = useVideos();
+
+  if (loading) {
+    return <div className="flex-1 flex items-center justify-center text-gray-400">Loading videos...</div>;
+  }
+
+  if (error) {
+    return <div className="flex-1 flex items-center justify-center text-red-400">{error}</div>;
+  }
 
   let filteredVideos = activeCategory === 'all' 
     ? videos 

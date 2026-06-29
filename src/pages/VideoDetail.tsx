@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, Navigate, Link, useNavigate } from 'react-router-dom';
-import { videos } from '../data/config';
+import { useVideos } from '../contexts/VideoContext';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { Danmaku, Comment } from '../types';
 import { generateId, formatNumber } from '../lib/utils';
@@ -24,6 +24,8 @@ const initialComments: Record<string, Comment[]> = {
 export function VideoDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { videos, loading, error } = useVideos();
+  
   const video = videos.find(v => v.id === id);
   const upNextVideos = videos.filter(v => v.id !== id).slice(0, 4);
   
@@ -66,7 +68,11 @@ export function VideoDetail() {
     }
   };
 
-  if (!video) {
+  if (loading) {
+    return <div className="flex-1 flex items-center justify-center text-gray-400">Loading video...</div>;
+  }
+
+  if (error || !video) {
     return <Navigate to="/" replace />;
   }
 
